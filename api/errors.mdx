@@ -36,7 +36,7 @@ The API uses the following HTTP status codes mapped to error statuses:
 | 429 | `rate_limited` | Rate limit exceeded for API key |
 | 500 | `internal_server_error` | Internal server error |
 
-These mappings are defined in `/home/daytona/workspace/source/apps/api/src/lib/errorcodes.ts:1`.
+These mappings are defined in `apps/api/src/lib/errorcodes.ts`.
 
 ## Error Codes Reference
 
@@ -248,7 +248,7 @@ Returned when an unexpected error occurs on the server.
 
 ### Error Handling Flow
 
-The API handles errors through a global error handler in `/home/daytona/workspace/source/apps/api/src/index.ts:18`:
+The API handles errors through a global error handler in `apps/api/src/index.ts`:
 
 ```typescript
 app.onError((err, c) => {
