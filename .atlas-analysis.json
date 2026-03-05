@@ -1,0 +1,78 @@
+{
+  "projectType": "saas",
+  "projectName": "Azen",
+  "projectDescription": "Developer-first AI memory layer for storing, retrieving, and reasoning over long-term user memory with encryption and semantic search.",
+  "theme": "almond",
+  "primaryColor": "#6c6d6d",
+  "lightColor": "#bebebe",
+  "darkColor": "#434343",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/memory-system",
+              "concepts/encryption",
+              "concepts/semantic-search",
+              "concepts/organizations"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/creating-memories",
+              "guides/searching-memories",
+              "guides/managing-api-keys",
+              "guides/usage-tracking"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/rate-limits",
+              "api/errors"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/endpoints/memories",
+              "api/endpoints/search"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Encrypted memory storage with AES-256-GCM",
+    "Semantic search using vector embeddings",
+    "Organization-based multi-tenancy",
+    "API key management with rate limiting",
+    "Usage tracking and analytics",
+    "Asynchronous embedding processing with BullMQ"
+  ],
+  "publicApiSurface": [
+    "POST /api/v1/memory - Create a new memory",
+    "GET /api/v1/memory - List all memories (paginated)",
+    "GET /api/v1/memory/:id - Retrieve a specific memory",
+    "DELETE /api/v1/memory/:id - Delete a memory",
+    "POST /api/v1/memory/search - Semantic search across memories",
+    "GET /api/v1/usage - Retrieve API usage statistics"
+  ]
+}
