@@ -1,0 +1,121 @@
+---
+title: 'API Overview'
+description: 'Introduction to the Azen Memory API'
+---
+
+The Azen Memory API enables storing, retrieving, and semantically searching user memories with encryption and vector embeddings.
+
+## Base URL
+
+All API requests should be made to:
+
+```
+https://api.azen.sh/api/v1
+```
+
+## Versioning
+
+The Azen API uses URL-based versioning. The current API version is **v1**, indicated by `/api/v1` in the base URL.
+
+Version changes will be communicated through:
+- API changelog updates
+- Deprecation notices for older versions
+- Migration guides for breaking changes
+
+## Content Types
+
+The API uses JSON for all request and response bodies.
+
+### Request Headers
+
+```http
+Content-Type: application/json
+azen-api-key: your_api_key_here
+```
+
+### Response Format
+
+All responses are returned in JSON format with the following structure:
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  // ... additional response data
+}
+```
+
+**Error Response:**
+```json
+{
+  "status": "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "rate_limited" | "internal_server_error",
+  "message": "Human-readable error message",
+  "code": 400 | 401 | 403 | 404 | 429 | 500
+}
+```
+
+## General Patterns
+
+### Pagination
+
+Endpoints that return lists support pagination through query parameters:
+
+- `page` - Page number (starts at 1, default: 1)
+- `per` - Items per page (min: 1, max: 100, default: 20)
+
+Paginated responses include:
+```json
+{
+  "status": "success",
+  "page": 1,
+  "per": 20,
+  "total_pages": 5,
+  "total_count": 100,
+  // ... data array
+}
+```
+
+### UUIDs
+
+All resource identifiers use UUID v4 format:
+```
+550e8400-e29b-41d4-a716-446655440000
+```
+
+### Timestamps
+
+All timestamps are returned in ISO 8601 format with UTC timezone:
+```
+2024-01-15T10:30:00.000Z
+```
+
+### CORS
+
+The API supports Cross-Origin Resource Sharing (CORS) with the following methods:
+- `GET`
+- `POST`
+- `DELETE`
+
+## OpenAPI Specification
+
+The complete OpenAPI 3.0.3 specification is available at:
+```
+https://api.azen.sh/openapi.yaml
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your API requests
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand API rate limiting policies
+  </Card>
+  <Card title="Error Codes" icon="circle-exclamation" href="/api/errors">
+    Reference for all API error codes
+  </Card>
+  <Card title="Memory API" icon="brain" href="/api/endpoints/memories">
+    Start working with memories
+  </Card>
+</CardGroup>

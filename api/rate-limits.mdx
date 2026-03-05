@@ -1,0 +1,170 @@
+---
+title: 'Rate Limits'
+description: 'Understanding API rate limiting with token bucket algorithm'
+---
+
+The Azen Memory API implements rate limiting to ensure fair usage and system stability. Each API key has its own rate limit configuration using a token bucket algorithm.
+
+## Token Bucket Algorithm
+
+The API uses a token bucket algorithm for rate limiting. This approach provides:
+
+- **Smooth rate control** - Prevents sudden traffic spikes
+- **Burst allowance** - Permits occasional bursts within limits
+- **Automatic refills** - Tokens regenerate over time
+
+### How It Works
+
+1. Each API key has a **bucket** that holds tokens
+2. Each API request **consumes one token** from the bucket
+3. Tokens are **automatically refilled** at a configured interval
+4. Requests fail when the bucket is **empty**
+
+## Rate Limit Configuration
+
+Each API key has the following rate limit fields in the database:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `refillInterval` | integer | Time in milliseconds between refills |
+| `refillAmount` | integer | Number of tokens added per refill |
+| `remaining` | integer | Current number of tokens available |
+| `lastRefillAt` | timestamp | Last time tokens were refilled |
+| `rateLimitEnabled` | boolean | Whether rate limiting is active |
+| `rateLimitMax` | integer | Maximum requests per time window (default: 60) |
+| `rateLimitTimeWindow` | integer | Time window in milliseconds (default: 60000ms) |
+| `requestCount` | integer | Total requests made with this key |
+| `lastRequest` | timestamp | Timestamp of the last request |
+
+### Default Limits
+
+**Standard API Key:**
+- **60 requests per minute** (rateLimitMax: 60)
+- **60 second window** (rateLimitTimeWindow: 60000ms)
+- **Automatic refills** based on key configuration
+
+## Rate Limit Errors
+
+When your API key exceeds its rate limit, you'll receive:
+
+**HTTP 429 - Too Many Requests**
+```json
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+This error is triggered by the authentication middleware when:
+```typescript
+if (code === "RATE_LIMITED") {
+  throw new HTTPException(429, {
+    message: response.error?.message ?? "Rate limit exceeded for this API key",
+  });
+}
+```
+
+## Rate Limit Headers
+
+<Note>
+Rate limit headers are not currently exposed in API responses. Token information is managed internally through the authentication service.
+</Note>
+
+The authentication service tracks:
+- Remaining tokens in the bucket
+- Last refill timestamp
+- Request count and timing
+- Time window enforcement
+
+## Handling Rate Limits
+
+### Best Practices
+
+1. **Implement exponential backoff**
+   ```javascript
+   async function makeRequestWithRetry(url, options, maxRetries = 3) {
+     for (let i = 0; i < maxRetries; i++) {
+       const response = await fetch(url, options);
+       
+       if (response.status === 429) {
+         const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+         await new Promise(resolve => setTimeout(resolve, delay));
+         continue;
+       }
+       
+       return response;
+     }
+   }
+   ```
+
+2. **Cache responses** when possible to reduce API calls
+
+3. **Batch operations** instead of making individual requests
+
+4. **Monitor usage** through the dashboard to track patterns
+
+5. **Request limit increases** if you have legitimate high-volume needs
+
+### Error Recovery
+
+```javascript
+async function handleRateLimit(error) {
+  if (error.code === 429) {
+    // Wait before retrying
+    await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+    
+    // Retry the request
+    return retryRequest();
+  }
+  
+  throw error;
+}
+```
+
+## Custom Rate Limits
+
+API keys can have custom rate limit configurations set through the dashboard:
+
+- **Disabled rate limiting** - For trusted internal services
+- **Custom refill intervals** - Adjust token regeneration rate
+- **Custom refill amounts** - Control burst capacity
+- **Custom time windows** - Modify the enforcement period
+
+<Info>
+Contact support if you need custom rate limits for your organization's API keys.
+</Info>
+
+## Rate Limit Monitoring
+
+Track your API key's rate limit usage:
+
+1. **Dashboard Analytics** - View real-time usage statistics
+2. **Request Count** - Total requests made with the key
+3. **Last Request** - Timestamp of most recent API call
+4. **Usage Patterns** - Identify peak usage times
+
+## Rate Limit Scope
+
+Rate limits are enforced:
+
+- **Per API key** - Each key has independent limits
+- **Across all endpoints** - Limits apply to total requests, not per endpoint
+- **Per organization** - Keys belong to organizations for billing and tracking
+
+### Protected Endpoints
+
+All authenticated endpoints are rate-limited:
+- `/api/v1/memory/*` - All memory operations
+- `/api/v1/usage` - Usage statistics endpoint
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Error Codes" icon="circle-exclamation" href="/api/errors">
+    View all API error codes and responses
+  </Card>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn about API key management
+  </Card>
+</CardGroup>

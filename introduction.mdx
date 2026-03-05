@@ -1,0 +1,102 @@
+---
+title: "Introduction"
+description: "Azen is a developer-first AI memory layer for storing, retrieving, and reasoning over long-term user memory with encryption and semantic search."
+---
+
+## What is Azen?
+
+Azen is an **AI memory infrastructure** that helps developers build stateful AI applications by providing:
+
+- **Secure memory storage** with AES-256-GCM encryption at rest
+- **Semantic search** using vector embeddings for intelligent memory retrieval
+- **Organization-based multi-tenancy** for team collaboration
+- **API key management** with configurable rate limiting
+- **Usage tracking and analytics** for monitoring and billing
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running with Azen in under 5 minutes
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore the complete API documentation
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/memory-system">
+    Learn how Azen's memory system works
+  </Card>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Set up API authentication for your application
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Encrypted Memory Storage" icon="lock">
+    Memory text is encrypted at rest in Postgres using AES-256-GCM. Plaintext exists only in-memory during requests.
+  </Card>
+  <Card title="Semantic Search" icon="magnifying-glass">
+    Find relevant memories using natural language queries powered by vector embeddings and similarity search.
+  </Card>
+  <Card title="Multi-Tenancy" icon="users">
+    Organization-based tenancy with role-based access control and team collaboration features.
+  </Card>
+  <Card title="Rate Limiting" icon="gauge">
+    Configurable rate limits per API key with automatic token bucket refills and usage tracking.
+  </Card>
+  <Card title="Async Processing" icon="gears">
+    Memory embeddings are processed asynchronously using BullMQ for reliable, scalable operations.
+  </Card>
+  <Card title="Usage Analytics" icon="chart-line">
+    Track API usage, request counts, and memory operations per organization for monitoring and billing.
+  </Card>
+</CardGroup>
+
+## Architecture
+
+Azen is built as a **secure-by-default** memory infrastructure:
+
+- **Memory encryption**: All memory text is encrypted at rest in Postgres. Decryption happens only during active requests.
+- **Vector separation**: Embeddings are stored separately in Pinecone, isolated from encrypted plaintext.
+- **Ephemeral processing**: Workers operate on temporary payloads without persistent access to decrypted memory.
+
+<Note>
+Security is treated as a baseline requirement, not an add-on feature.
+</Note>
+
+## Technology Stack
+
+Azen is built with modern, production-ready technologies:
+
+- **Backend**: Hono (TypeScript API framework)
+- **Database**: Postgres with Drizzle ORM
+- **Vector DB**: Pinecone for semantic search
+- **Auth**: Better Auth for user authentication
+- **Queue**: BullMQ with Redis for async processing
+- **Runtime**: Bun for fast TypeScript execution
+
+## Use Cases
+
+Azen is designed for AI applications that need persistent, searchable user context:
+
+- **AI assistants** that remember user preferences and conversation history
+- **Personalized recommendations** based on stored user behavior and interests
+- **Context-aware chatbots** that retrieve relevant information from past interactions
+- **Knowledge management** systems with semantic search capabilities
+
+## Getting Started
+
+<Steps>
+  <Step title="Create an account">
+    Sign up at [azen.sh](https://azen.sh) and create your first organization.
+  </Step>
+  <Step title="Generate an API key">
+    Create an API key from the console dashboard with appropriate permissions.
+  </Step>
+  <Step title="Make your first request">
+    Start storing and retrieving memories using the REST API.
+  </Step>
+</Steps>
+
+<Card title="Ready to start?" icon="arrow-right" href="/quickstart">
+  Follow our quickstart guide to create your first memory
+</Card>

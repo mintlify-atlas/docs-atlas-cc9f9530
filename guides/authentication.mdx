@@ -1,0 +1,261 @@
+---
+title: "Authentication"
+description: "Learn how to authenticate your API requests with Azen using API keys"
+---
+
+## Overview
+
+Azen supports two authentication methods:
+
+1. **API Key Authentication** - For programmatic access to the API
+2. **Session Authentication** - For web console access (handled automatically)
+
+This guide focuses on API key authentication for developers integrating Azen into their applications.
+
+## API Key Authentication
+
+All API requests must include an API key in the `azen-api-key` header.
+
+### Header Format
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.azen.sh/api/v1/memory \
+  -H "azen-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello, Azen!"}'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.azen.sh/api/v1/memory', {
+  method: 'POST',
+  headers: {
+    'azen-api-key': 'YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ text: 'Hello, Azen!' })
+});
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://api.azen.sh/api/v1/memory',
+    headers={
+        'azen-api-key': 'YOUR_API_KEY',
+        'Content-Type': 'application/json'
+    },
+    json={'text': 'Hello, Azen!'}
+)
+```
+
+</CodeGroup>
+
+## How Authentication Works
+
+The authentication flow is implemented in `authMiddleware.ts`:
+
+<Steps>
+  <Step title="Check for session authentication">
+    The middleware first checks for an active user session (used by the web console).
+  </Step>
+  
+  <Step title="Extract API key from header">
+    If no session exists, the middleware extracts the `azen-api-key` header from the request.
+  </Step>
+  
+  <Step title="Verify API key">
+    The API key is verified using Better Auth's `verifyApiKey` method, which checks:
+    - Key validity
+    - Rate limits
+    - Key expiration
+    - Organization association
+  </Step>
+  
+  <Step title="Set context variables">
+    Upon successful verification, the middleware sets:
+    - `userId` - The user who created the key
+    - `organizationId` - The organization the key belongs to
+    - `apiKeyId` - The unique key identifier
+  </Step>
+</Steps>
+
+## Authentication Errors
+
+### Missing API Key (401)
+
+**Error**: No `azen-api-key` header provided
+
+```json
+{
+  "status": "unauthorized",
+  "message": "no api key",
+  "code": 401
+}
+```
+
+**Solution**: Include the `azen-api-key` header in your request.
+
+### Invalid API Key (403)
+
+**Error**: API key is invalid, expired, or disabled
+
+```json
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+**Solution**: Check that your API key is:
+- Correctly copied (no extra spaces)
+- Still active and not expired
+- Associated with a valid organization
+
+### Rate Limited (429)
+
+**Error**: API key has exceeded its rate limit
+
+```json
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+**Solution**: Wait for the rate limit to reset or upgrade your rate limit settings. See [Rate Limits](/api/rate-limits) for details.
+
+## Security Best Practices
+
+<Warning>
+Never expose API keys in client-side code, public repositories, or logs.
+</Warning>
+
+### Store Keys Securely
+
+<CodeGroup>
+
+```bash Environment Variables
+# .env file (never commit this!)
+AZEN_API_KEY=your_api_key_here
+```
+
+```javascript Node.js
+// Use environment variables
+const apiKey = process.env.AZEN_API_KEY;
+
+// Never hardcode keys
+// const apiKey = "az_live_abc123..."; ❌ DON'T DO THIS
+```
+
+```python Python
+import os
+
+# Use environment variables
+api_key = os.environ.get('AZEN_API_KEY')
+
+# Never hardcode keys
+# api_key = "az_live_abc123..."  ❌ DON'T DO THIS
+```
+
+</CodeGroup>
+
+### Rotate Keys Regularly
+
+<Steps>
+  <Step title="Create a new API key">
+    Generate a new key from the console dashboard
+  </Step>
+  
+  <Step title="Update your application">
+    Deploy the new key to your application's environment
+  </Step>
+  
+  <Step title="Delete the old key">
+    Remove the old key from the console once confirmed working
+  </Step>
+</Steps>
+
+### Use Key-Specific Permissions
+
+When creating API keys, grant only the minimum permissions needed:
+
+- **Read-only keys** for monitoring and analytics
+- **Write-only keys** for data ingestion services
+- **Full access keys** only for trusted applications
+
+<Note>
+API key permissions are configured in the console when creating or editing keys.
+</Note>
+
+## Organization Context
+
+All authenticated requests are scoped to an organization:
+
+- **API keys** are tied to a specific organization (stored in `organizationId` metadata)
+- **Memories** are isolated per organization
+- **Usage tracking** is aggregated by organization
+- **Rate limits** are enforced per organization
+
+This ensures complete data isolation between organizations in multi-tenant deployments.
+
+## Testing Authentication
+
+Test your authentication setup with a simple request:
+
+<CodeGroup>
+
+```bash curl
+curl -X GET https://api.azen.sh/api/v1 \
+  -H "azen-api-key: YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.azen.sh/api/v1', {
+  headers: { 'azen-api-key': 'YOUR_API_KEY' }
+});
+
+const data = await response.json();
+console.log(data); // { "status": "ok" }
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.azen.sh/api/v1',
+    headers={'azen-api-key': 'YOUR_API_KEY'}
+)
+
+print(response.json())  # {"status": "ok"}
+```
+
+</CodeGroup>
+
+**Expected response**:
+```json
+{
+  "status": "ok"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Memories" icon="brain" href="/guides/creating-memories">
+    Start storing memories with your API key
+  </Card>
+  <Card title="Manage API Keys" icon="key" href="/guides/managing-api-keys">
+    Learn how to create and manage API keys
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand rate limiting and quotas
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/api/errors">
+    Handle authentication errors gracefully
+  </Card>
+</CardGroup>

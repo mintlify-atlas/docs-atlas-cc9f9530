@@ -1,0 +1,228 @@
+---
+title: Search Endpoint
+description: Perform semantic vector search across encrypted user memories
+---
+
+The Search API enables semantic search across all user memories using vector embeddings. Query text is embedded and matched against stored memory vectors to find the most similar memories ranked by relevance.
+
+## Search Memories
+
+<CodeGroup>
+```bash POST /api/v1/memory/search
+curl -X POST https://api.azen.sh/api/v1/memory/search \
+  -H "azen-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "outdoor activities",
+    "topK": 5
+  }'
+```
+
+```bash Simple Search
+curl -X POST https://api.azen.sh/api/v1/memory/search \
+  -H "azen-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "outdoor activities"
+  }'
+```
+
+```bash Custom Top Results
+curl -X POST https://api.azen.sh/api/v1/memory/search \
+  -H "azen-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "outdoor activities",
+    "topK": 10
+  }'
+```
+</CodeGroup>
+
+Performs semantic vector search across all user memories using the provided query text. Returns the most similar memories ranked by similarity score.
+
+### Request Body
+
+<ParamField body="query" type="string" required>
+  The search query text to find similar memories. Must be at least 1 character long.
+  
+  **Example:** `"outdoor activities"`
+</ParamField>
+
+<ParamField body="topK" type="number" default="5">
+  Maximum number of top results to return
+  
+  **Minimum:** `1`
+  
+  **Maximum:** `50`
+  
+  **Default:** `5`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Response status indicator
+  
+  **Value:** `"success"`
+</ResponseField>
+
+<ResponseField name="memories" type="array" required>
+  Array of matching memory objects ordered by relevance (highest similarity first)
+  
+  <Expandable title="Memory Object">
+    <ResponseField name="id" type="string" required>
+      Unique identifier for the memory (UUID format)
+      
+      **Example:** `"550e8400-e29b-41d4-a716-446655440000"`
+    </ResponseField>
+    
+    <ResponseField name="content" type="string" required>
+      The decrypted text content of the memory
+      
+      **Example:** `"I love hiking in the mountains"`
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="object | null" required>
+      Optional metadata associated with the memory
+      
+      **Example:** `null`
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string" required>
+      ISO 8601 timestamp when the memory was created
+      
+      **Example:** `"2024-01-15T10:30:00.000Z"`
+    </ResponseField>
+    
+    <ResponseField name="embedded" type="boolean" required>
+      Indicates whether the memory has been successfully embedded for vector search
+      
+      **Example:** `true`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="rawMatches" type="array" required>
+  Raw similarity scores and IDs from vector search
+  
+  <Expandable title="RawMatch Object">
+    <ResponseField name="id" type="string" required>
+      Memory identifier (may include chunk identifier separated by ::)
+      
+      **Example:** `"550e8400-e29b-41d4-a716-446655440000::0"`
+    </ResponseField>
+    
+    <ResponseField name="score" type="number" required>
+      Similarity score between query and memory (higher is better)
+      
+      **Example:** `0.87`
+    </ResponseField>
+    
+    <ResponseField name="values" type="array" required>
+      Vector values (typically empty array in responses)
+      
+      **Example:** `[]`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json 200 Success
+{
+  "status": "success",
+  "memories": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "content": "I love hiking in the mountains",
+      "metadata": null,
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "embedded": true
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "content": "Rock climbing is my favorite weekend activity",
+      "metadata": null,
+      "createdAt": "2024-01-14T15:20:00.000Z",
+      "embedded": true
+    }
+  ],
+  "rawMatches": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000::0",
+      "score": 1.00110459,
+      "values": []
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001::0",
+      "score": 0.82,
+      "values": []
+    }
+  ]
+}
+```
+
+```json 400 Invalid JSON
+{
+  "status": "invalid_request",
+  "message": "Request body must be valid JSON",
+  "code": 400
+}
+```
+
+```json 400 Validation Error
+{
+  "status": "invalid_request",
+  "message": "Invalid request body",
+  "code": 400
+}
+```
+
+```json 401 Unauthorized
+{
+  "status": "unauthorized",
+  "message": "Not authenticated",
+  "code": 401
+}
+```
+
+```json 403 Forbidden
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+```json 429 Rate Limited
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+```json 500 Embedding Failed
+{
+  "status": "internal_server_error",
+  "message": "Failed to embed query",
+  "code": 500
+}
+```
+</ResponseExample>
+
+## How It Works
+
+1. **Query Embedding**: Your search query is converted into a vector embedding using the same model used for memory embeddings
+2. **Vector Search**: The query vector is compared against all memory vectors in your organization's namespace
+3. **Ranking**: Results are ranked by cosine similarity score (higher scores indicate better matches)
+4. **Decryption**: Matched memories are decrypted and returned with their similarity scores
+
+## Best Practices
+
+- **Query Length**: Queries don't need to be exact matches. Natural language queries work well (e.g., "outdoor activities" will match "hiking", "camping", etc.)
+- **Top K Selection**: Start with the default `topK: 5` and adjust based on your use case. Higher values return more results but may include less relevant matches
+- **Score Interpretation**: Scores typically range from 0 to 1+. Scores above 0.7 generally indicate good semantic similarity
+- **Empty Results**: If no memories are returned, it means either:
+  - No memories have been created yet
+  - Memories haven't finished embedding yet (check `embedded: false` on memories)
+  - The query doesn't semantically match any stored memories

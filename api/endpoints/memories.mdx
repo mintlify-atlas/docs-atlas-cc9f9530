@@ -1,0 +1,475 @@
+---
+title: Memory Endpoints
+description: Create, retrieve, list, and delete encrypted user memories
+---
+
+The Memory API provides endpoints for managing encrypted user memories. All memory content is automatically encrypted at rest and queued for vector embedding to enable semantic search.
+
+## Create Memory
+
+<CodeGroup>
+```bash POST /api/v1/memory
+curl -X POST https://api.azen.sh/api/v1/memory \
+  -H "azen-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "I love hiking in the mountains"
+  }'
+```
+</CodeGroup>
+
+Creates a new memory with the provided text content. The content is automatically encrypted and queued for embedding.
+
+### Request Body
+
+<ParamField body="text" type="string" required>
+  The text content to store as a memory. Must be at least 1 character long.
+  
+  **Example:** `"I love hiking in the mountains"`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Response status indicator
+  
+  **Value:** `"success"`
+</ResponseField>
+
+<ResponseField name="memoryId" type="string" required>
+  UUID of the newly created memory
+  
+  **Example:** `"550e8400-e29b-41d4-a716-446655440000"`
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of memory creation
+  
+  **Example:** `"2024-01-15T10:30:00.000Z"`
+</ResponseField>
+
+<ResponseField name="embedding" type="string" required>
+  Embedding status (always 'processing' for new memories)
+  
+  **Value:** `"processing"`
+</ResponseField>
+
+<ResponseExample>
+```json 201 Success
+{
+  "status": "success",
+  "memoryId": "550e8400-e29b-41d4-a716-446655440000",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "embedding": "processing"
+}
+```
+
+```json 400 Invalid Request
+{
+  "status": "invalid_request",
+  "message": "Invalid request body",
+  "code": 400
+}
+```
+
+```json 401 Unauthorized
+{
+  "status": "unauthorized",
+  "message": "Not authenticated",
+  "code": 401
+}
+```
+
+```json 403 Forbidden
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+```json 429 Rate Limited
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+```json 500 Server Error
+{
+  "status": "internal_server_error",
+  "message": "Failed to create memory record",
+  "code": 500
+}
+```
+</ResponseExample>
+
+---
+
+## List Memories
+
+<CodeGroup>
+```bash GET /api/v1/memory
+curl -X GET "https://api.azen.sh/api/v1/memory?page=1&per=20" \
+  -H "azen-api-key: YOUR_API_KEY"
+```
+</CodeGroup>
+
+Retrieves a paginated list of all memories for the authenticated user, ordered by creation date (newest first).
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number for pagination (starts at 1)
+  
+  **Minimum:** `1`
+</ParamField>
+
+<ParamField query="per" type="integer" default="20">
+  Number of memories per page
+  
+  **Minimum:** `1`
+  
+  **Maximum:** `100`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Response status indicator
+  
+  **Value:** `"success"`
+</ResponseField>
+
+<ResponseField name="memories" type="array" required>
+  Array of memory objects for the current page
+  
+  <Expandable title="Memory Object">
+    <ResponseField name="id" type="string" required>
+      Unique identifier for the memory (UUID format)
+    </ResponseField>
+    
+    <ResponseField name="content" type="string" required>
+      The decrypted text content of the memory
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="object | null" required>
+      Optional metadata associated with the memory
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string" required>
+      ISO 8601 timestamp when the memory was created
+    </ResponseField>
+    
+    <ResponseField name="embedded" type="boolean" required>
+      Indicates whether the memory has been successfully embedded for vector search
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="page" type="integer" required>
+  Current page number
+</ResponseField>
+
+<ResponseField name="per" type="integer" required>
+  Number of memories per page
+</ResponseField>
+
+<ResponseField name="total_pages" type="integer" required>
+  Total number of pages available
+</ResponseField>
+
+<ResponseField name="total_count" type="integer" required>
+  Total count of memory objects
+</ResponseField>
+
+<ResponseExample>
+```json 200 Success
+{
+  "status": "success",
+  "memories": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "content": "I love hiking in the mountains",
+      "metadata": null,
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "embedded": true
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "content": "I enjoy reading sci-fi novels",
+      "metadata": null,
+      "createdAt": "2024-01-14T15:20:00.000Z",
+      "embedded": true
+    }
+  ],
+  "page": 1,
+  "per": 20,
+  "total_pages": 5,
+  "total_count": 100
+}
+```
+
+```json 401 Unauthorized
+{
+  "status": "unauthorized",
+  "message": "Not authenticated",
+  "code": 401
+}
+```
+
+```json 403 Forbidden
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+```json 429 Rate Limited
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+```json 500 Server Error
+{
+  "status": "internal_server_error",
+  "message": "Internal Server Error: Unhandled exception.",
+  "code": 500
+}
+```
+</ResponseExample>
+
+---
+
+## Get Memory
+
+<CodeGroup>
+```bash GET /api/v1/memory/{id}
+curl -X GET https://api.azen.sh/api/v1/memory/550e8400-e29b-41d4-a716-446655440000 \
+  -H "azen-api-key: YOUR_API_KEY"
+```
+</CodeGroup>
+
+Retrieves a specific memory using its unique UUID. Returns 404 if the memory doesn't exist or doesn't belong to the authenticated user.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the memory to retrieve
+  
+  **Example:** `"550e8400-e29b-41d4-a716-446655440000"`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Response status indicator
+  
+  **Value:** `"success"`
+</ResponseField>
+
+<ResponseField name="memory" type="object" required>
+  The memory object
+  
+  <Expandable title="Memory Object">
+    <ResponseField name="id" type="string" required>
+      Unique identifier for the memory (UUID format)
+    </ResponseField>
+    
+    <ResponseField name="content" type="string" required>
+      The decrypted text content of the memory
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="object | null" required>
+      Optional metadata associated with the memory
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string" required>
+      ISO 8601 timestamp when the memory was created
+    </ResponseField>
+    
+    <ResponseField name="embedded" type="boolean" required>
+      Indicates whether the memory has been successfully embedded for vector search
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json 200 Success
+{
+  "status": "success",
+  "memory": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "content": "I love hiking in the mountains",
+    "metadata": null,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "embedded": true
+  }
+}
+```
+
+```json 400 Invalid ID
+{
+  "status": "invalid_request",
+  "message": "Invalid memory Id",
+  "code": 400
+}
+```
+
+```json 401 Unauthorized
+{
+  "status": "unauthorized",
+  "message": "Not authenticated",
+  "code": 401
+}
+```
+
+```json 403 Forbidden
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+```json 404 Not Found
+{
+  "status": "not_found",
+  "message": "Memory not found",
+  "code": 404
+}
+```
+
+```json 429 Rate Limited
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+```json 500 Server Error
+{
+  "status": "internal_server_error",
+  "message": "Internal Server Error: Unhandled exception.",
+  "code": 500
+}
+```
+</ResponseExample>
+
+---
+
+## Delete Memory
+
+<CodeGroup>
+```bash DELETE /api/v1/memory/{id}
+curl -X DELETE https://api.azen.sh/api/v1/memory/550e8400-e29b-41d4-a716-446655440000 \
+  -H "azen-api-key: YOUR_API_KEY"
+```
+</CodeGroup>
+
+Permanently deletes a memory and its associated vector embeddings. Returns 404 if the memory doesn't exist.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the memory to delete
+  
+  **Example:** `"550e8400-e29b-41d4-a716-446655440000"`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string" required>
+  Response status indicator
+  
+  **Value:** `"success"`
+</ResponseField>
+
+<ResponseField name="deleted" type="boolean" required>
+  Indicates successful deletion
+  
+  **Value:** `true`
+</ResponseField>
+
+<ResponseField name="memoryId" type="string" required>
+  UUID of the deleted memory
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Confirmation message
+  
+  **Value:** `"Memory deleted successfully"`
+</ResponseField>
+
+<ResponseExample>
+```json 200 Success
+{
+  "status": "success",
+  "deleted": true,
+  "memoryId": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Memory deleted successfully"
+}
+```
+
+```json 400 Invalid ID
+{
+  "status": "invalid_request",
+  "message": "Invalid memory Id",
+  "code": 400
+}
+```
+
+```json 401 Unauthorized
+{
+  "status": "unauthorized",
+  "message": "Not authenticated",
+  "code": 401
+}
+```
+
+```json 403 Forbidden
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+```json 404 Not Found
+{
+  "status": "not_found",
+  "message": "Memory not found",
+  "code": 404
+}
+```
+
+```json 429 Rate Limited
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+```json 500 Delete Vectors Failed
+{
+  "status": "internal_server_error",
+  "message": "Failed to delete vectors for memory",
+  "code": 500
+}
+```
+
+```json 500 Delete Record Failed
+{
+  "status": "internal_server_error",
+  "message": "Failed to delete memory record",
+  "code": 500
+}
+```
+</ResponseExample>

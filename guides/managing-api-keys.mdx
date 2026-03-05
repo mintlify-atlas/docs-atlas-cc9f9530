@@ -1,0 +1,338 @@
+---
+title: "Managing API Keys"
+description: "Create, configure, and manage API keys for secure access to Azen"
+---
+
+## Overview
+
+API keys are the primary authentication method for programmatic access to Azen. Each key is scoped to an organization and can be configured with rate limits, expiration, and permissions.
+
+## Creating API Keys
+
+<Steps>
+  <Step title="Access the console">
+    Log in to the Azen console at [azen.sh](https://azen.sh) and navigate to your organization dashboard.
+  </Step>
+  
+  <Step title="Navigate to API keys">
+    Go to **Settings** → **API Keys** in the sidebar.
+  </Step>
+  
+  <Step title="Create new key">
+    Click **Create API Key** and configure your key settings.
+  </Step>
+  
+  <Step title="Copy and store">
+    Copy the API key immediately - it won't be shown again. Store it securely in your environment variables or secrets manager.
+  </Step>
+</Steps>
+
+<Warning>
+API keys are shown only once during creation. If you lose a key, you'll need to create a new one and delete the old key.
+</Warning>
+
+## API Key Structure
+
+API keys are stored with the following fields in the database schema:
+
+### Key Fields
+
+From `packages/db/src/db/schema.ts`:
+
+```typescript
+export const apikey = pgTable("apikey", {
+  id: text("id").primaryKey(),
+  name: text("name"),                    // Human-readable key name
+  start: text("start"),                  // First chars for identification
+  prefix: text("prefix"),                // Key prefix (e.g., "az_live")
+  key: text("key").notNull(),            // Hashed key value
+  userId: text("user_id").notNull(),     // Creator/owner user
+  organizationId: text("organization_id"), // Owning organization
+  
+  // Rate limiting
+  refillInterval: integer("refill_interval"),
+  refillAmount: integer("refill_amount"),
+  lastRefillAt: timestamp("last_refill_at"),
+  rateLimitEnabled: boolean("rate_limit_enabled").default(true),
+  rateLimitTimeWindow: integer("rate_limit_time_window").default(60000),
+  rateLimitMax: integer("rate_limit_max").default(60),
+  requestCount: integer("request_count").default(0),
+  remaining: integer("remaining"),
+  
+  // Status and tracking
+  enabled: boolean("enabled").default(true),
+  lastRequest: timestamp("last_request"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+  
+  // Advanced
+  permissions: text("permissions"),
+  metadata: json("metadata"),
+});
+```
+
+## Configuring Rate Limits
+
+### Token Bucket Algorithm
+
+Azen uses a token bucket rate limiting algorithm:
+
+- **`rateLimitMax`**: Maximum requests in the time window (default: 60)
+- **`rateLimitTimeWindow`**: Time window in milliseconds (default: 60000 = 1 minute)
+- **`refillInterval`**: How often tokens refill (optional)
+- **`refillAmount`**: How many tokens to add on refill (optional)
+
+### Rate Limit Examples
+
+<Accordion title="Standard Rate Limit (60 req/min)">
+  ```json
+  {
+    "rateLimitEnabled": true,
+    "rateLimitMax": 60,
+    "rateLimitTimeWindow": 60000
+  }
+  ```
+  Allows 60 requests per minute. Exceeding this returns HTTP 429.
+</Accordion>
+
+<Accordion title="High Throughput (1000 req/min)">
+  ```json
+  {
+    "rateLimitEnabled": true,
+    "rateLimitMax": 1000,
+    "rateLimitTimeWindow": 60000
+  }
+  ```
+  Suitable for production applications with high traffic.
+</Accordion>
+
+<Accordion title="Burst Allowance with Refill">
+  ```json
+  {
+    "rateLimitEnabled": true,
+    "rateLimitMax": 100,
+    "rateLimitTimeWindow": 60000,
+    "refillInterval": 10000,
+    "refillAmount": 20
+  }
+  ```
+  Allows bursts up to 100 requests, with 20 tokens added every 10 seconds.
+</Accordion>
+
+<Accordion title="No Rate Limit">
+  ```json
+  {
+    "rateLimitEnabled": false
+  }
+  ```
+  Disables rate limiting entirely (not recommended for production).
+</Accordion>
+
+<Note>
+Rate limit configuration is set during key creation and can be updated from the console.
+</Note>
+
+## Key Permissions
+
+API keys can be scoped with specific permissions (stored in the `permissions` field):
+
+- **`memory.read`**: List and retrieve memories
+- **`memory.write`**: Create new memories
+- **`memory.delete`**: Delete memories
+- **`usage.read`**: View usage statistics
+
+<Info>
+Permission scoping is enforced in the console. The API currently assumes full permissions for valid keys.
+</Info>
+
+## Key Expiration
+
+Set an expiration date for temporary or time-limited keys:
+
+```typescript
+{
+  expiresAt: "2024-12-31T23:59:59Z"
+}
+```
+
+Expired keys return HTTP 403 with message "Invalid API key".
+
+<Tip>
+Use short-lived keys for demos, testing, or third-party integrations that require temporary access.
+</Tip>
+
+## Key Metadata
+
+Store additional context about keys using the `metadata` JSON field:
+
+```json
+{
+  "metadata": {
+    "organizationId": "org_123",
+    "environment": "production",
+    "service": "chatbot-api",
+    "createdBy": "john@example.com"
+  }
+}
+```
+
+Metadata is not enforced by the API but useful for:
+- Tracking key usage context
+- Auditing key creation
+- Identifying keys in logs
+
+## Monitoring API Keys
+
+### Track Usage
+
+Monitor key usage from the console:
+
+- **Total requests**: Lifetime request count
+- **Last request**: Timestamp of most recent API call
+- **Remaining tokens**: Current rate limit token balance
+
+### View Activity
+
+See detailed usage metrics:
+
+```bash
+curl -X GET https://api.azen.sh/api/v1/usage \
+  -H "azen-api-key: YOUR_API_KEY"
+```
+
+Returns usage statistics for your organization over the last 30 days.
+
+See [Usage Tracking](/guides/usage-tracking) for details.
+
+## Revoking API Keys
+
+<Steps>
+  <Step title="Identify the key">
+    Find the key to revoke in the console's API Keys list.
+  </Step>
+  
+  <Step title="Disable or delete">
+    - **Disable**: Set `enabled` to `false` (key can be re-enabled later)
+    - **Delete**: Permanently remove the key from the database
+  </Step>
+  
+  <Step title="Verify">
+    Confirm that API requests with the revoked key return HTTP 403.
+  </Step>
+</Steps>
+
+<Warning>
+Deleting a key is permanent and cannot be undone. Disabled keys can be re-enabled if needed.
+</Warning>
+
+## Key Rotation Best Practices
+
+### Regular Rotation
+
+Rotate keys every 90 days:
+
+<Steps>
+  <Step title="Create new key">
+    Generate a new API key with identical permissions and rate limits.
+  </Step>
+  
+  <Step title="Update applications">
+    Deploy the new key to all services using the old key.
+  </Step>
+  
+  <Step title="Monitor">
+    Verify that the old key shows no recent activity (check `lastRequest` timestamp).
+  </Step>
+  
+  <Step title="Delete old key">
+    Once confirmed, delete the old key from the console.
+  </Step>
+</Steps>
+
+### Emergency Rotation
+
+If a key is compromised:
+
+1. **Immediately disable** the compromised key
+2. **Create a new key** with different settings
+3. **Update all applications** ASAP
+4. **Audit logs** to check for unauthorized access
+5. **Delete the compromised key** once migration is complete
+
+## Troubleshooting
+
+### Key Not Working (403)
+
+**Possible causes**:
+- Key is disabled (`enabled: false`)
+- Key has expired (`expiresAt` in the past)
+- Key is not associated with a valid organization
+- Key was deleted
+
+**Solution**: Create a new key or check key status in console.
+
+### Rate Limit Exceeded (429)
+
+```json
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+**Solution**: 
+- Wait for rate limit to reset
+- Implement exponential backoff
+- Request higher rate limits from console
+
+### Key Not Found in Requests
+
+**Symptom**: HTTP 401 "no api key"
+
+**Solution**: Ensure you're sending the `azen-api-key` header:
+
+```bash
+curl -H "azen-api-key: YOUR_KEY" https://api.azen.sh/api/v1/memory
+```
+
+## Security Recommendations
+
+<CardGroup cols={2}>
+  <Card title="Use Environment Variables" icon="code">
+    Never hardcode keys in source code. Use environment variables or secrets managers.
+  </Card>
+  <Card title="Separate Keys per Environment" icon="server">
+    Use different keys for development, staging, and production environments.
+  </Card>
+  <Card title="Rotate Regularly" icon="rotate">
+    Rotate keys every 90 days or after team member departures.
+  </Card>
+  <Card title="Monitor Activity" icon="chart-line">
+    Regularly review key usage to detect anomalies or compromised keys.
+  </Card>
+  <Card title="Scope Permissions" icon="shield">
+    Grant only the minimum permissions needed for each key's purpose.
+  </Card>
+  <Card title="Set Expiration" icon="clock">
+    Use short-lived keys for temporary access or third-party integrations.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication Guide" icon="key" href="/guides/authentication">
+    Learn how to use API keys in requests
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand rate limiting in detail
+  </Card>
+  <Card title="Usage Tracking" icon="chart-bar" href="/guides/usage-tracking">
+    Monitor API usage and quotas
+  </Card>
+  <Card title="Organizations" icon="users" href="/concepts/organizations">
+    Understand organization-based access control
+  </Card>
+</CardGroup>

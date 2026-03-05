@@ -1,0 +1,376 @@
+---
+title: 'Error Codes'
+description: 'Complete reference for API error codes and responses'
+---
+
+The Azen Memory API uses standard HTTP status codes and returns structured error responses for all failures.
+
+## Error Response Format
+
+All error responses follow this structure:
+
+```json
+{
+  "status": "error_status_code",
+  "message": "Human-readable error description",
+  "code": 400
+}
+```
+
+### Fields
+
+- `status` - Machine-readable error status (see table below)
+- `message` - Human-readable error message with context
+- `code` - HTTP status code as an integer
+
+## HTTP Status Codes
+
+The API uses the following HTTP status codes mapped to error statuses:
+
+| HTTP Code | Status | Description |
+|-----------|--------|-------------|
+| 400 | `invalid_request` | Bad request - validation error or malformed JSON |
+| 401 | `unauthorized` | Not authenticated - missing or empty API key |
+| 403 | `forbidden` | Invalid or disabled API key |
+| 404 | `not_found` | Resource not found |
+| 429 | `rate_limited` | Rate limit exceeded for API key |
+| 500 | `internal_server_error` | Internal server error |
+
+These mappings are defined in `/home/daytona/workspace/source/apps/api/src/lib/errorcodes.ts:1`.
+
+## Error Codes Reference
+
+### 400 - Invalid Request
+
+Returned when the request is malformed or fails validation.
+
+**Invalid JSON:**
+```json
+{
+  "status": "invalid_request",
+  "message": "Request body must be valid JSON",
+  "code": 400
+}
+```
+
+**Validation Error:**
+```json
+{
+  "status": "invalid_request",
+  "message": "Invalid request body",
+  "code": 400
+}
+```
+
+**Invalid UUID:**
+```json
+{
+  "status": "invalid_request",
+  "message": "Invalid memory Id",
+  "code": 400
+}
+```
+
+**Common Causes:**
+- Missing required fields in request body
+- Invalid JSON syntax
+- Invalid UUID format in path parameters
+- Validation constraints not met (e.g., minLength, maximum values)
+
+---
+
+### 401 - Unauthorized
+
+Returned when authentication credentials are missing.
+
+```json
+{
+  "status": "unauthorized",
+  "message": "Not authenticated",
+  "code": 401
+}
+```
+
+Or:
+
+```json
+{
+  "status": "unauthorized",
+  "message": "no api key",
+  "code": 401
+}
+```
+
+**Common Causes:**
+- Missing `azen-api-key` header
+- Empty API key value
+- No active session for web dashboard access
+
+---
+
+### 403 - Forbidden
+
+Returned when the API key is invalid, disabled, or lacks required permissions.
+
+```json
+{
+  "status": "forbidden",
+  "message": "Invalid API key",
+  "code": 403
+}
+```
+
+Or:
+
+```json
+{
+  "status": "forbidden",
+  "message": "Unauthorized",
+  "code": 403
+}
+```
+
+**Common Causes:**
+- API key doesn't exist in the database
+- API key is disabled (`enabled: false`)
+- API key has expired (`expiresAt` has passed)
+- API key is missing required metadata (organizationId, userId)
+- User session exists but has no active organization
+
+---
+
+### 404 - Not Found
+
+Returned when the requested resource doesn't exist or doesn't belong to your organization.
+
+```json
+{
+  "status": "not_found",
+  "message": "Memory not found",
+  "code": 404
+}
+```
+
+**Common Causes:**
+- Memory ID doesn't exist
+- Memory belongs to a different organization
+- Resource was already deleted
+- Invalid endpoint path
+
+---
+
+### 429 - Rate Limited
+
+Returned when your API key has exceeded its rate limit.
+
+```json
+{
+  "status": "rate_limited",
+  "message": "Rate limit exceeded for this API key",
+  "code": 429
+}
+```
+
+**Common Causes:**
+- Too many requests in the time window (default: 60 requests per minute)
+- Token bucket is empty (no remaining tokens)
+- Burst limit exceeded
+
+See [Rate Limits](/api/rate-limits) for more information.
+
+---
+
+### 500 - Internal Server Error
+
+Returned when an unexpected error occurs on the server.
+
+**Generic Error:**
+```json
+{
+  "status": "internal_server_error",
+  "message": "Internal Server Error: Unhandled exception.",
+  "code": 500
+}
+```
+
+**Memory Creation Failed:**
+```json
+{
+  "status": "internal_server_error",
+  "message": "Failed to create memory record",
+  "code": 500
+}
+```
+
+**Embedding Job Failed:**
+```json
+{
+  "status": "internal_server_error",
+  "message": "Failed to create embedding job record",
+  "code": 500
+}
+```
+
+**Vector Deletion Failed:**
+```json
+{
+  "status": "internal_server_error",
+  "message": "Failed to delete vectors for memory",
+  "code": 500
+}
+```
+
+**Memory Deletion Failed:**
+```json
+{
+  "status": "internal_server_error",
+  "message": "Failed to delete memory record",
+  "code": 500
+}
+```
+
+**Query Embedding Failed:**
+```json
+{
+  "status": "internal_server_error",
+  "message": "Failed to embed query",
+  "code": 500
+}
+```
+
+**Common Causes:**
+- Database connection issues
+- Vector database unavailable
+- Encryption/decryption failures
+- Unhandled exceptions in business logic
+
+## Error Handling
+
+### Error Handling Flow
+
+The API handles errors through a global error handler in `/home/daytona/workspace/source/apps/api/src/index.ts:18`:
+
+```typescript
+app.onError((err, c) => {
+    console.error(`API Error on Path ${c.req.path}:`, err, err.message);
+    if(err instanceof HTTPException) {
+        const code = err.status;
+        const statusText = errorCodes[code] ?? "internal_server_error";
+        return c.json({
+            status: statusText,
+            message: err.message,
+            code: err.status
+        }, err.status);
+    };
+    
+    return c.json({ 
+        status: "internal_server_error", 
+        message: "Internal Server Error: Unhandled exception.",
+        code: 500, 
+    }, 500);
+});
+```
+
+### Client-Side Error Handling
+
+**JavaScript/TypeScript:**
+```javascript
+try {
+  const response = await fetch('https://api.azen.sh/api/v1/memory', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'azen-api-key': 'your_api_key'
+    },
+    body: JSON.stringify({ text: 'Example memory' })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    
+    switch (error.code) {
+      case 401:
+        console.error('Authentication failed:', error.message);
+        break;
+      case 403:
+        console.error('Invalid API key:', error.message);
+        break;
+      case 429:
+        console.error('Rate limited, retry after delay');
+        break;
+      case 500:
+        console.error('Server error:', error.message);
+        break;
+      default:
+        console.error('Error:', error.status, error.message);
+    }
+    
+    return;
+  }
+
+  const data = await response.json();
+  console.log('Success:', data);
+  
+} catch (err) {
+  console.error('Network error:', err);
+}
+```
+
+**Python:**
+```python
+import requests
+from time import sleep
+
+try:
+    response = requests.post(
+        'https://api.azen.sh/api/v1/memory',
+        headers={
+            'Content-Type': 'application/json',
+            'azen-api-key': 'your_api_key'
+        },
+        json={'text': 'Example memory'}
+    )
+    
+    if response.status_code == 429:
+        # Rate limited - wait and retry
+        sleep(60)
+        response = requests.post(...)  # Retry
+    
+    response.raise_for_status()
+    data = response.json()
+    print('Success:', data)
+    
+except requests.exceptions.HTTPError as err:
+    error_data = err.response.json()
+    print(f"Error {error_data['code']}: {error_data['message']}")
+    
+except requests.exceptions.RequestException as err:
+    print('Network error:', err)
+```
+
+## Best Practices
+
+1. **Always check HTTP status codes** before parsing response body
+2. **Handle rate limits gracefully** with exponential backoff
+3. **Log error messages** for debugging and monitoring
+4. **Don't expose internal errors** to end users
+5. **Implement retry logic** for transient errors (500, 429)
+6. **Validate input** on the client side to avoid 400 errors
+7. **Securely store API keys** to prevent 401/403 errors
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn about API authentication
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand rate limiting policies
+  </Card>
+  <Card title="Memory API" icon="brain" href="/api/endpoints/memories">
+    Start making API requests
+  </Card>
+  <Card title="API Overview" icon="book" href="/api/overview">
+    Review API basics and patterns
+  </Card>
+</CardGroup>
